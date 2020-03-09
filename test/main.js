@@ -1,38 +1,56 @@
-import {spawn} from 'child_process'
-import got from 'got'
-import test from 'ava'
+const {fork} = require('child_process')
+const got = require('got')
+const test = require('ava')
 
-const PORT = 61479;
 
-const origin = `http://localhost:${PORT}`
-
-function startServer(port, log){
-    return new Promise((resolve, reject) => {
-        const serverProcess = spawn('node', ['main.js', '--port', port], {stdio: 'inherit'});
-        serverProcess.on('error', reject);
-        //serverProcess.on('exit', reject);
-
-        serverProcess.on('message', m => {
-            if(m === 'ready'){
-                resolve()
-                log('yo, ready')
-            }
-            else
-                log('message from server', m)
-        });
-
-        //server.stdout.pipe(process.stdout)
-
-        setTimeout(resolve, 3000)
-    })
-}
 
 test.before(t => {
-    t.log('before');
-    return startServer(PORT, t.log);
+    console.log('before');
+
+    function startServer(log){
+        return new Promise((resolve, reject) => {
+            const serverProcess = fork('main.js');
+    
+            serverProcess.on('error', error => {
+                console.error('serverProcess error', error)
+                reject(error)
+            });
+            serverProcess.on('exit', error => {
+                console.error('serverProcess exit', error)
+                reject(error)
+            });
+    
+            serverProcess.on('message', m => {
+                const {origin} = m;
+    
+                console.log('message', m)
+    
+                resolve({origin, serverProcess})
+            });
+        })
+    }
+
+
+    return startServer((...args) => console.log(...args))
+    .then(({origin, serverProcess}) => {
+        console.log('before origin', origin)
+        t.context = {origin, serverProcess}
+    })
+    .catch(err => {
+        console.log('before err', err)
+        throw err;
+    })
+    
+
+
 })
 
 test('/', t => {
+    t.pass()
+    t.log('context in test' ,t.context)
+
+    const {origin} = t.context
+
     return got(`${origin}/`)
     .then(resp => {
         t.log('yo', resp)
@@ -103,3 +121,7 @@ test.skip('/new?group&separate', async t => {
         throw `make sure other urls don't work for DELETE + got.delete url and make sure all urls returns a 404`
     })
 });
+
+test.after(t => {
+    return t.context.serverProcess.kill()
+})
