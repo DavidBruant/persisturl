@@ -1,0 +1,29 @@
+{
+  "name": "persisturl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node main.js",
+    "test": "ava"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DavidBruant/persisturl.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DavidBruant/persisturl/issues"
+  },
+  "homepage": "https://github.com/DavidBruant/persisturl#readme",
+  "devDependencies": {
+    "ava": "^3.5.0"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "minimist": "^1.2.0"
+  }
+}
