@@ -5,8 +5,6 @@ import isURL from './helpers/isURL.js'
 import startServer from './helpers/startServer.js'
 
 test.before(t => {
-    console.log('before');
-
     return startServer()
     .then(({origin, serverProcess}) => {
         t.context = {origin, serverProcess}
@@ -35,6 +33,5 @@ test('/first-use', t => {
         t.true(isURL(resp['create-caretaker-for'], `['create-caretaker-for'] is a url`))
         t.true(isURL(resp['DELETE'], `['DELETE'] is a url`))
     })
-
 });
 

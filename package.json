@@ -20,7 +20,8 @@
   },
   "homepage": "https://github.com/DavidBruant/persisturl#readme",
   "devDependencies": {
-    "ava": "^3.5.0"
+    "ava": "^3.5.0",
+    "got": "^10.6.0"
   },
   "dependencies": {
     "express": "^4.17.1",
