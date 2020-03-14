@@ -19,8 +19,45 @@ const port = argv.port && Number(argv.port) || undefined
 const app = express()
 app.use(express.json()) // for parsing application/json
 app.use(express.urlencoded({ extended: true })) // for parsing application/x-www-form-urlencoded
+app.use(express.text())
+app.use(express.raw()) 
+
+const GONE = Object.freeze({});
 
 const storage = new Map();
+
+function makePUT(getKey){
+    return (req, res) => {
+        if(req.method === 'GET'){
+            return res.status(200).send(storage.get(getKey))
+        }
+        if(req.method === 'PUT'){
+            const content = req.body;
+            storage.set(getKey, content)
+    
+            res.status(204).end()
+        }
+
+        return res.status(405).end()
+    }
+}
+
+function makeDELETE(getKey, putKey, deleteKey){
+    return (req, res) => {
+        if(req.method === 'GET'){
+            return res.status(200).send(storage.get(getKey))
+        }
+        if(req.method === 'DELETE'){
+            storage.set(getKey, GONE)
+            storage.set(putKey, GONE)
+            storage.set(deleteKey, GONE)
+    
+            res.status(204).end()
+        }
+
+        return res.status(405).end()
+    }
+}
 
 function makeContentBundle(req, res){
     if(req.method !== 'POST'){
@@ -33,10 +70,10 @@ function makeContentBundle(req, res){
     storage.set(getKey, content)
 
     const putKey = makeUnusedStorageKey();
-    storage.set(putKey, THROW('TODO PUT'))
+    storage.set(putKey, makePUT(getKey))
 
     const deleteKey = makeUnusedStorageKey();
-    storage.set(deleteKey, THROW('TODO DELETE'))
+    storage.set(deleteKey, makeDELETE(getKey, putKey, deleteKey))
 
     const origin = `${req.protocol}://${req.get('Host')}`
 
@@ -90,12 +127,16 @@ app.all('*', (req, res) => {
 
     console.log('persisturl server receiving key', key)
 
-    const stored = storage.get(key);
-
-    if(!stored){
+    if(!storage.has(key)){
         res.status(404).end(`Nothing for key '${key}'`)
     }
     else{
+        const stored = storage.get(key);
+
+        if(stored === GONE){
+            return res.status(410).end()
+        }
+
         if(typeof stored === 'function'){
             try{
                 return stored(req, res)

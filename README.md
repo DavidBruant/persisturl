@@ -22,13 +22,12 @@ npm install
 npm start
 ```
 
-## API
+## API Reference
 
 ### First use
 
-A (`GET`) `/first-use` endpoint can be used by the person installing the server
-This url can only be used once. It becomes unavailable afterwards. It returns a JSON body
-
+- **Request** `GET /first-use`
+- **Response**
 ```json
 {
     "store": "http://capability-url.example/aaaaa...",
@@ -36,6 +35,10 @@ This url can only be used once. It becomes unavailable afterwards. It returns a 
     "DELETE": "http://capability-url.example/ccccc...",
 }
 ```
+
+This endpoint can be used by the person installing the server
+This url can only be used once. It becomes unavailable afterwards
+
 
 ### Store capability
 
@@ -54,6 +57,30 @@ The `Location` header also contains the `PUT` url. The `PUT` and `DELETE` urls c
 This requests stores the body in the server. The return value is a bundle of capabilities to GET/PUT/DELETE on the resource
 
 
+#### GET capability
+
+- **Request** `GET <url>`
+- **Response** content that was stored
+
+
+#### PUT capability
+
+- **Request** `GET <url>`
+- **Response** content that was stored
+
+- **Request** `PUT <url> <body>`
+- **Response** replaces content
+
+
+#### DELETE capability
+
+- **Request** `GET <url>`
+- **Response** content that was stored
+
+- **Request** `DELETE <url>`
+- **Response** deletes the content and the associated GET/PUT/DELETE capabilities
+
+
 ### create-caretaker-for capability
 
 - **Request** `POST <url> <body>`
@@ -68,3 +95,7 @@ This requests stores the body in the server. The return value is a bundle of cap
 ```
 
 
+### DELETE capability
+
+- **Request** `DELETE <url>`
+- **Response** deletes the store bundle and all the content associated to the store
