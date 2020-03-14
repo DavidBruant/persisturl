@@ -3,61 +3,6 @@ const got = require('got')
 const test = require('ava')
 
 
-
-test.before(t => {
-    console.log('before');
-
-    function startServer(log){
-        return new Promise((resolve, reject) => {
-            const serverProcess = fork('main.js');
-    
-            serverProcess.on('error', error => {
-                console.error('serverProcess error', error)
-                reject(error)
-            });
-            serverProcess.on('exit', error => {
-                console.error('serverProcess exit', error)
-                reject(error)
-            });
-    
-            serverProcess.on('message', m => {
-                const {origin} = m;
-    
-                console.log('message', m)
-    
-                resolve({origin, serverProcess})
-            });
-        })
-    }
-
-
-    return startServer((...args) => console.log(...args))
-    .then(({origin, serverProcess}) => {
-        console.log('before origin', origin)
-        t.context = {origin, serverProcess}
-    })
-    .catch(err => {
-        console.log('before err', err)
-        throw err;
-    })
-    
-
-
-})
-
-test('/', t => {
-    t.pass()
-    t.log('context in test' ,t.context)
-
-    const {origin} = t.context
-
-    return got(`${origin}/`)
-    .then(resp => {
-        t.log('yo', resp)
-        t.pass()
-    })
-});
-
 test.skip('/new', async t => {
     return got.post(`${origin}/new`, {body: '{"a":1}'})
     .then(({url, body}) => {
@@ -121,7 +66,3 @@ test.skip('/new?group&separate', async t => {
         throw `make sure other urls don't work for DELETE + got.delete url and make sure all urls returns a 404`
     })
 });
-
-test.after(t => {
-    return t.context.serverProcess.kill()
-})
