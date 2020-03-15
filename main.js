@@ -59,42 +59,96 @@ function makeDELETE(getKey, putKey, deleteKey){
     }
 }
 
-function makeContentBundle(req, res){
-    if(req.method !== 'POST'){
-        return res.status(405).end()
+function makeStore(){
+    const store = (req, res) => {
+        if(req.method !== 'POST'){
+            return res.status(405).end()
+        }
+
+        const content = req.body;
+
+        const getKey = makeUnusedStorageKey();
+        storage.set(getKey, content)
+
+        const putKey = makeUnusedStorageKey();
+        storage.set(putKey, makePUT(getKey))
+
+        const deleteKey = makeUnusedStorageKey();
+        storage.set(deleteKey, makeDELETE(getKey, putKey, deleteKey))
+
+        const origin = `${req.protocol}://${req.get('Host')}`
+
+        const getURL = `${origin}/${getKey}`;
+
+        res.status(201)
+            .set('Location', getURL)
+            .json({
+                'GET': getURL,
+                'PUT': `${origin}/${putKey}`,
+                'DELETE': `${origin}/${deleteKey}`,
+            })
     }
 
-    const content = req.body;
+    store.type = 'store'
 
-    const getKey = makeUnusedStorageKey();
-    storage.set(getKey, content)
-
-    const putKey = makeUnusedStorageKey();
-    storage.set(putKey, makePUT(getKey))
-
-    const deleteKey = makeUnusedStorageKey();
-    storage.set(deleteKey, makeDELETE(getKey, putKey, deleteKey))
-
-    const origin = `${req.protocol}://${req.get('Host')}`
-
-    const getURL = `${origin}/${getKey}`;
-
-    res.status(201)
-        .set('Location', getURL)
-        .json({
-            'GET': getURL,
-            'PUT': `${origin}/${putKey}`,
-            'DELETE': `${origin}/${deleteKey}`,
-        })
+    return store;
 }
 
+function makeRevoke(targetKey, revokeKey){
+    return (req, res) => {
+        storage.set(targetKey, GONE)
+        storage.set(revokeKey, GONE)
+
+        res.status(204).end()
+    }
+}
+
+function makeCaretaker(){
+    return (req, res) => {
+        if(req.method !== 'POST'){
+            return res.status(405).end()
+        }
+
+        const {target} = req.body;
+        const {pathname} = new URL(target);
+        const targetKey = pathname.slice(1); // strip first '/'
+
+        if(!storage.has(targetKey)){
+            return res.status(404).end()
+        }
+        else{
+            const targeted = storage.get(targetKey);
+
+            if(targeted.type === 'store'){
+                const newStoreKey = makeUnusedStorageKey();
+                storage.set(newStoreKey, makeStore())
+
+                const revokeKey = makeUnusedStorageKey();
+                storage.set(revokeKey, makeRevoke(newStoreKey, revokeKey))
+
+                const origin = `${req.protocol}://${req.get('Host')}`
+                const newStoreURL = `${origin}/${newStoreKey}`;
+
+                res.status(201)
+                    .set('Location', newStoreURL)
+                    .json({
+                        'store': newStoreURL,
+                        'revoke': `${origin}/${revokeKey}`
+                    })
+            }
+            else{
+                return res.status(400).send(`Impossible to use caretaker on a target type other than 'store'`)
+            }        
+        }
+    }
+}
 
 function makeStoreBundle(req, res){
     const storeKey = makeUnusedStorageKey();
-    storage.set(storeKey, makeContentBundle)
+    storage.set(storeKey, makeStore())
 
-    const createCaretakerForKey = makeUnusedStorageKey();
-    storage.set(createCaretakerForKey, THROW('TODO caretaker'))
+    const createCaretakerKey = makeUnusedStorageKey();
+    storage.set(createCaretakerKey, makeCaretaker())
 
     const deleteKey = makeUnusedStorageKey();
     storage.set(deleteKey, THROW('TODO DELETE store'))
@@ -107,7 +161,7 @@ function makeStoreBundle(req, res){
         .set('Location', storeURL)
         .json({
             'store': storeURL,
-            'create-caretaker-for': `${origin}/${createCaretakerForKey}`,
+            'createCaretaker': `${origin}/${createCaretakerKey}`,
             'DELETE': `${origin}/${deleteKey}`,
         })
 }

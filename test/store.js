@@ -51,9 +51,10 @@ test('POST on initial store capability', t => {
         t.is(headers['content-type'], 'application/json; charset=utf-8')
         t.true(isURL(resp.GET), '.GET is a url')
         t.is(headers['location'], resp.GET, 'Location header is .GET url')
-        t.true(isURL(resp.PUT, `.PUT is a url`))
-        t.true(isURL(resp.DELETE, `.DELETE is a url`))
+        t.true(isURL(resp.PUT), `.PUT is a url`)
+        t.true(isURL(resp.DELETE), `.DELETE is a url`)
     })
+    .catch(gotHTTPErrorHandler(t))
 });
 
 test('GET capability on store retrieves the stored content', t => {

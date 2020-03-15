@@ -30,8 +30,8 @@ test('/first-use', t => {
         t.is(headers['content-type'], 'application/json; charset=utf-8')
         t.true(isURL(resp.store), '.store is a url')
         t.is(headers['location'], resp.store, 'Location header is .store url')
-        t.true(isURL(resp['create-caretaker-for'], `['create-caretaker-for'] is a url`))
-        t.true(isURL(resp['DELETE'], `['DELETE'] is a url`))
+        t.true(isURL(resp.createCaretaker), `.createCaretaker is a url`)
+        t.true(isURL(resp['DELETE']), `['DELETE'] is a url`)
     })
 });
 

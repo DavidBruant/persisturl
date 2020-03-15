@@ -1,5 +1,8 @@
 export default function(t){
-    return ({response: {statusCode, body}}) => {
+    return error => {
+        t.log('error', error)
+        const {response: {statusCode, body}} = error;
+
         t.log('HTTP Error', statusCode, body)
         t.fail()
     }
