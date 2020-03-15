@@ -59,8 +59,8 @@ function makeDELETE(getKey, putKey, deleteKey){
     }
 }
 
-function makeStore(){
-    const store = (req, res) => {
+function makeAdd(){
+    const add = (req, res) => {
         if(req.method !== 'POST'){
             return res.status(405).end()
         }
@@ -89,19 +89,34 @@ function makeStore(){
             })
     }
 
-    store.type = 'store'
+    add.type = 'add'
 
-    return store;
+    return add;
 }
 
-function makeRevoke(targetKey, revokeKey){
+function makeRevoke(keysToRevoke){
     return (req, res) => {
-        storage.set(targetKey, GONE)
-        storage.set(revokeKey, GONE)
+        for(const key of keysToRevoke){
+            storage.set(key, GONE)
+        }
 
         res.status(204).end()
     }
 }
+
+function makeStore(){
+    const addKey = makeUnusedStorageKey();
+    storage.set(addKey, makeAdd())
+
+    const deleteKey = makeUnusedStorageKey();
+    storage.set(deleteKey, THROW('TODO DELETE store'))
+
+    return {
+        addKey,
+        deleteKey 
+    }
+}
+
 
 function makeCaretaker(){
     return (req, res) => {
@@ -119,20 +134,22 @@ function makeCaretaker(){
         else{
             const targeted = storage.get(targetKey);
 
-            if(targeted.type === 'store'){
-                const newStoreKey = makeUnusedStorageKey();
-                storage.set(newStoreKey, makeStore())
+            if(targeted.type === 'add'){
+                const {addKey, deleteKey} = makeStore()
 
                 const revokeKey = makeUnusedStorageKey();
-                storage.set(revokeKey, makeRevoke(newStoreKey, revokeKey))
+                storage.set(revokeKey, makeRevoke([addKey, deleteKey, revokeKey]))
 
                 const origin = `${req.protocol}://${req.get('Host')}`
-                const newStoreURL = `${origin}/${newStoreKey}`;
+                const addURL = `${origin}/${addKey}`;
 
                 res.status(201)
-                    .set('Location', newStoreURL)
+                    .set('Location', addURL)
                     .json({
-                        'store': newStoreURL,
+                        'store': {
+                            'add': addURL,
+                            'DELETE': `${origin}/${deleteKey}`,
+                        },
                         'revoke': `${origin}/${revokeKey}`
                     })
             }
@@ -144,25 +161,23 @@ function makeCaretaker(){
 }
 
 function makeStoreBundle(req, res){
-    const storeKey = makeUnusedStorageKey();
-    storage.set(storeKey, makeStore())
-
     const createCaretakerKey = makeUnusedStorageKey();
     storage.set(createCaretakerKey, makeCaretaker())
 
-    const deleteKey = makeUnusedStorageKey();
-    storage.set(deleteKey, THROW('TODO DELETE store'))
+    const {addKey, deleteKey} = makeStore()
 
     const origin = `${req.protocol}://${req.get('Host')}`
 
-    const storeURL = `${origin}/${storeKey}`;
+    const addURL = `${origin}/${addKey}`;
 
     res.status(201)
-        .set('Location', storeURL)
+        .set('Location', addURL)
         .json({
-            'store': storeURL,
-            'createCaretaker': `${origin}/${createCaretakerKey}`,
-            'DELETE': `${origin}/${deleteKey}`,
+            'store': {
+                'add': addURL,
+                'DELETE': `${origin}/${deleteKey}`,
+            },
+            'createCaretaker': `${origin}/${createCaretakerKey}`
         })
 }
 

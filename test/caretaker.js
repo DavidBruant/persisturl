@@ -32,15 +32,15 @@ test.after.always(t => {
 
 
 test('POST on createCaretaker on store creates a secundary store', t => {
-    const {store, createCaretaker} = t.context.firstUseBundle
+    const {store: {add}, createCaretaker} = t.context.firstUseBundle
 
-    return got.post(createCaretaker, {json: {target: store}, responseType: 'json'})
+    return got.post(createCaretaker, {json: {target: add}, responseType: 'json'})
     .then(({statusCode, headers, body}) => {
         t.is(statusCode, 201)
         t.is(headers['content-type'], 'application/json; charset=utf-8')
-        t.true(isURL(body.store), '.store')
-        t.not(body.store, store, 'the new and previous store are different')
-        t.is(headers['location'], body.store, 'Location header is .store url')
+        t.true(isURL(body.store.add), '.store.add is a url')
+        t.not(body.store.add, add, 'the new and previous store are different')
+        t.is(headers['location'], body.store.add, 'Location header is .store.add url')
         t.true(isURL(body.revoke), `.revoke is a url`)
 
         return body.store
@@ -48,7 +48,7 @@ test('POST on createCaretaker on store creates a secundary store', t => {
     .then(newStore => {
         const content = {a:18};
 
-        return got.post(newStore, {json: content, responseType: 'json'})
+        return got.post(newStore.add, {json: content, responseType: 'json'})
         .then(({statusCode, headers, body}) => {
             t.is(statusCode, 201)
             t.true(isURL(body.GET), '.GET is a url')
@@ -65,15 +65,15 @@ test('POST on createCaretaker on store creates a secundary store', t => {
 })
 
 test('POST on revoke prevents further creations with new store', t => {
-    const {store, createCaretaker} = t.context.firstUseBundle
+    const {store: {add}, createCaretaker} = t.context.firstUseBundle
 
-    return got.post(createCaretaker, {json: {target: store}, responseType: 'json'})
+    return got.post(createCaretaker, {json: {target: add}, responseType: 'json'})
     .then(({body: {store: newStore, revoke}}) => {
         return got.post(revoke)
         .then(({statusCode}) => {
             t.is(statusCode, 204)
 
-            return got.post(newStore, {json: {yo: 87}})
+            return got.post(newStore.add, {json: {yo: 87}})
             .catch(({response: {statusCode}}) => {
                 t.is(statusCode, 410)
             })

@@ -34,16 +34,16 @@ test.after.always(t => {
 test('GET on initial store capability', t => {
     const {store} = t.context.firstUseBundle
 
-    return got.get(store)
+    return got.get(store.add)
     .catch(({response: {statusCode}}) => {
         t.is(statusCode, 405)
     })
 });
 
 test('POST on initial store capability', t => {
-    const {store} = t.context.firstUseBundle
+    const {store: {add}} = t.context.firstUseBundle
 
-    return got.post(store, {json: {a:1}})
+    return got.post(add, {json: {a:1}})
     .then(({statusCode, headers, body}) => {
         const resp = JSON.parse(body);
 
@@ -58,11 +58,11 @@ test('POST on initial store capability', t => {
 });
 
 test('GET capability on store retrieves the stored content', t => {
-    const {store} = t.context.firstUseBundle
+    const {store: {add}} = t.context.firstUseBundle
 
     const content = {b:37};
 
-    return got.post(store, {json: content})
+    return got.post(add, {json: content})
     .then(({body}) => {
         const resp = JSON.parse(body);
 
@@ -76,12 +76,12 @@ test('GET capability on store retrieves the stored content', t => {
 });
 
 test('PUT capability on store enables to retrieve the content as well as replacing it', t => {
-    const {store} = t.context.firstUseBundle
+    const {store: {add}} = t.context.firstUseBundle
 
     const content = {c:25};
     const otherContent = {d:76};
 
-    return got.post(store, {json: content})
+    return got.post(add, {json: content})
     .then(({body}) => {
         const {PUT, GET} = JSON.parse(body);
 
@@ -115,11 +115,11 @@ test('PUT capability on store enables to retrieve the content as well as replaci
 });
 
 test('DELETE capability on store enables to retrieve the content as well as removing it', t => {
-    const {store} = t.context.firstUseBundle
+    const {store: {add}} = t.context.firstUseBundle
 
     const content = {e:99};
 
-    return got.post(store, {json: content})
+    return got.post(add, {json: content})
     .then(({body}) => {
         const {PUT, GET, DELETE} = JSON.parse(body);
 

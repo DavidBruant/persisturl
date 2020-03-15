@@ -28,10 +28,10 @@ test('/first-use', t => {
 
         t.is(statusCode, 201)
         t.is(headers['content-type'], 'application/json; charset=utf-8')
-        t.true(isURL(resp.store), '.store is a url')
-        t.is(headers['location'], resp.store, 'Location header is .store url')
+        t.true(isURL(resp.store.add), '.store is a url')
+        t.true(isURL(resp.store.DELETE), '.store is a url')
+        t.is(headers['location'], resp.store.add, 'Location header is .store.add url')
         t.true(isURL(resp.createCaretaker), `.createCaretaker is a url`)
-        t.true(isURL(resp['DELETE']), `['DELETE'] is a url`)
     })
 });
 
