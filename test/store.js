@@ -67,7 +67,7 @@ test('GET capability on store retrieves the stored content', t => {
         const resp = JSON.parse(body);
 
         return got.get(resp.GET, {responseType: 'json'})
-        .then(({statusCode, headers, body}) => {
+        .then(({statusCode, body}) => {
             t.is(statusCode, 200)
             t.deepEqual(body, content)
         })

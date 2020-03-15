@@ -30,14 +30,29 @@ npm start
 - **Response**
 ```json
 {
-    "store": "http://capability-url.example/aaaaa...",
+    "store": {
+        "add": "http://capability-url.example/aaaaa...",
+        "DELETE": "http://capability-url.example/ccccc..."
+    },
+    "import": "http://capability-url.example/iiiii...",
+    "export": "http://capability-url.example/xxxxx...",
     "create-caretaker-for": "http://capability-url.example/bbbbb...",
-    "DELETE": "http://capability-url.example/ccccc...",
 }
 ```
 
 This endpoint can be used by the person installing the server
 This url can only be used once. It becomes unavailable afterwards
+
+### Export capability
+
+- **Request** `GET <url>`
+- **Response** full export of server data
+
+
+### Import capability
+
+- **Request** `POST <url> <body>`
+- **Response** 204 when the import was succesful
 
 
 ### Store capability

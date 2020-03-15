@@ -2,7 +2,6 @@ import {GONE} from './constants.js'
 
 import makeUnusedStorageKey from './makeUnusedStorageKey.js'
 
-
 function THROW(message){
     return () => {throw new Error(message)};
 }
@@ -141,10 +140,42 @@ function makeStore(storage){
     }
 }
 
+function makeExport(storage){
+    return (req, res) => {
+        const exportData = Object.create(null);
+        for(const [key, value] of storage){
+            const serializableValue = Buffer.isBuffer(value) ? 
+                {type: 'buffer', content: value.toString('base64')} :
+                value
+            exportData[key] = serializableValue
+        }
+
+        res.status(200).json(exportData)
+    }
+}
+
+function makeImport(storage){
+    return (req, res) => {
+        const importData = req.body;
+
+        for(const [key, value] of Object.entries(importData)){
+            storage.set(key, value)
+        }
+
+        res.status(204).end()
+    }
+}
+
 export default function makeStoreBundle(storage){
     return (req, res) => {
         const createCaretakerKey = makeUnusedStorageKey(storage);
         storage.set(createCaretakerKey, makeCaretaker(storage))
+
+        const exportKey = makeUnusedStorageKey(storage);
+        storage.set(exportKey, makeExport(storage))
+
+        const importKey = makeUnusedStorageKey(storage);
+        storage.set(importKey, makeImport(storage))
 
         const {addKey, deleteKey} = makeStore(storage)
 
@@ -159,7 +190,9 @@ export default function makeStoreBundle(storage){
                     'add': addURL,
                     'DELETE': `${origin}/${deleteKey}`,
                 },
-                'createCaretaker': `${origin}/${createCaretakerKey}`
+                'createCaretaker': `${origin}/${createCaretakerKey}`,
+                'export': `${origin}/${exportKey}`,
+                'import': `${origin}/${importKey}`,
             })
     }
 }
