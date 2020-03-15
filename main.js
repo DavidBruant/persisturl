@@ -16,7 +16,7 @@ app.use(express.raw())
 const storage = new Map();
 
 
-app.get('/first-use', (req, res) => {    
+app.post('/first-use', (req, res) => {    
     if(storage.size === 0){
         makeServerBundle(storage)(req, res)
     }

@@ -5,17 +5,29 @@ import isURL from './helpers/isURL.js'
 import startServer from './helpers/startServer.js'
 import gotHTTPErrorHandler from './helpers/gotHTTPErrorHandler.js'
 
+async function createServerAfterFirstUse(){
+    const {origin, serverProcess} = await startServer()
+    const {store: {add}, export: exportCap, import: importCap, createCaretaker} = await got.post(`${origin}/first-use`).json()
+
+    return {
+        origin, serverProcess,
+        store: {add}, export: exportCap, import: importCap, createCaretaker
+    }
+}
+
+
 test('basic export and reimport', async t => {
     t.plan(7)
 
     const content = {a:1, b:12, c:74};
 
-    t.log('start a first server')
-    const {origin: firstOrigin, serverProcess: firstServerProcess} = await startServer()
-    t.log(`first server origin ${firstOrigin}`)
-
     try{
-        const {store: {add}, export: exportCap} = await got(`${firstOrigin}/first-use`).json()
+        t.log('start a first server')
+        const {
+            origin: firstOrigin, serverProcess: firstServerProcess,
+            store: {add}, export: exportCap
+        } = await createServerAfterFirstUse()
+        t.log(`first server origin ${firstOrigin}`)
     
         t.true(isURL(exportCap), '.export is a url')
 
@@ -39,10 +51,11 @@ test('basic export and reimport', async t => {
         });
 
         t.log('start new fresh server')
-        const {origin: secondOrigin, serverProcess: secondServerProcess} = await startServer()
+        const {
+            origin: secondOrigin, serverProcess: secondServerProcess,
+            import: importCap
+        } = await createServerAfterFirstUse()
         t.log(`second server origin ${secondOrigin}`)
-                
-        const {import: importCap} = await got(`${secondOrigin}/first-use`).json()
         
         t.true(isURL(importCap), '.import is a url')
 
@@ -65,3 +78,19 @@ test('basic export and reimport', async t => {
     }
 });
 
+/*
+    Un test un peu plus complet en terme de contenu:
+
+    - commencer un serveur
+        - retenir
+            - store
+            - createCaretaker
+    - mettre un contenu
+        - retenir
+            - GET, PUT, DELETE
+    - créer un caretaker
+        - retenir
+            - la nouvelle cap
+            - la fonction de révocation
+
+*/

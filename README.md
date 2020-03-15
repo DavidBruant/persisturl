@@ -26,7 +26,7 @@ npm start
 
 ### First use
 
-- **Request** `GET /first-use`
+- **Request** `POST /first-use <body?>`
 - **Response**
 ```json
 {
@@ -42,6 +42,9 @@ npm start
 
 This endpoint can be used by the person installing the server
 This url can only be used once. It becomes unavailable afterwards
+
+The `<body>` is optional. If passed, it is used to import the data of another storage server
+
 
 ### Export capability
 

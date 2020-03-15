@@ -22,7 +22,7 @@ test.after.always(t => {
 test('/first-use', t => {
     const {origin} = t.context
 
-    return got(`${origin}/first-use`)
+    return got.post(`${origin}/first-use`)
     .then(({statusCode, headers, body}) => {
         const resp = JSON.parse(body);
 

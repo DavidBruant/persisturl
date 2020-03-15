@@ -8,7 +8,7 @@ import gotHTTPErrorHandler from './helpers/gotHTTPErrorHandler.js'
 test.before(t => {
     return startServer()
     .then(({origin, serverProcess}) => {
-        return got(`${origin}/first-use`).json()
+        return got.post(`${origin}/first-use`).json()
         .then(firstUseBundle => {
             return {
                 firstUseBundle,
