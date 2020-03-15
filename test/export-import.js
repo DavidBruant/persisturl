@@ -5,75 +5,63 @@ import isURL from './helpers/isURL.js'
 import startServer from './helpers/startServer.js'
 import gotHTTPErrorHandler from './helpers/gotHTTPErrorHandler.js'
 
-
-
-test('export and reimport', t => {
+test('basic export and reimport', async t => {
     t.plan(7)
 
     const content = {a:1, b:12, c:74};
 
     t.log('start a first server')
-    return startServer()
-    .then(({origin, serverProcess}) => {
-        t.log(`first server origin ${origin}`)
-        return got(`${origin}/first-use`).json()
-        .then(({store: {add}, export: exportCap}) => {
-            t.true(isURL(exportCap), '.export is a url')
+    const {origin: firstOrigin, serverProcess: firstServerProcess} = await startServer()
+    t.log(`first server origin ${firstOrigin}`)
 
-            t.log('store some data in the first server')
-            return got.post(add, {json: content, responseType: 'json'})
-            .then(({body: {GET}}) => {
-                const key = (new URL(GET)).pathname.slice(1)
-                t.is(typeof key, 'string', `key is a string (${key})`)
+    try{
+        const {store: {add}, export: exportCap} = await got(`${firstOrigin}/first-use`).json()
+    
+        t.true(isURL(exportCap), '.export is a url')
 
-                t.log('export first server data')
-                return got.get(exportCap)
-                .then(({statusCode, body}) => {
-                    t.is(statusCode, 200)
+        t.log('store some data in the first server')
+        const {body: {GET}} = await got.post(add, {json: content, responseType: 'json'})
+        
+        const key = (new URL(GET)).pathname.slice(1)
+        t.is(typeof key, 'string', `key is a string (${key})`)
 
-                    return {exportData: body, key, serverProcess}
-                })
-            })
-        })
-    })
-    .then(({exportData, key, serverProcess}) => {
-        t.log('turn off first server')
+        t.log('export first server data')
+        const {statusCode: exportStatusCode, body: exportData} = await got.get(exportCap)
+                    
+        t.is(exportStatusCode, 200);
+
+        t.log('turning off first server')
         t.log('key', key)
         t.log('exportData', exportData)
-        return (new Promise((resolve, reject) => {
-            serverProcess.on('exit', resolve)
-            serverProcess.kill()
-        }))
-        .then(() => ({exportData, key}))
-    })
-    .then(({exportData, key}) => {
-        t.log('start new fresh server')
-        return startServer()
-        .then(({origin, serverProcess}) => {
-            t.log(`second server origin ${origin}`)
-            return got(`${origin}/first-use`).json()
-            .then(({import: importCap}) => {
-                t.true(isURL(importCap), '.import is a url')
+        await new Promise((resolve, reject) => {
+            firstServerProcess.on('exit', resolve)
+            firstServerProcess.kill()
+        });
 
-                return got.post(importCap, {body: exportData, headers: {'Content-Type': 'application/json'}})
-                .then(({statusCode}) => {
-                    t.is(statusCode, 204, 'import returns a 204 on success')
-                })
-            })
-            .then(() => {
-                const url = `${origin}/${key}`;
-                t.log(`trying ${url}`)
-                return got.get(url, {responseType: 'json'})
-                .then(({statusCode, body}) => {
-                    t.is(statusCode, 200, `GETting the key of reimported content returns 200`)
-                    t.deepEqual(body, content, `GETting the key of reimported content returns the correct content`)
-                })
-            })
-            .then(() => {
-                serverProcess.kill()
-            })
-        })
-    })
-    .catch(gotHTTPErrorHandler(t))
+        t.log('start new fresh server')
+        const {origin: secondOrigin, serverProcess: secondServerProcess} = await startServer()
+        t.log(`second server origin ${secondOrigin}`)
+                
+        const {import: importCap} = await got(`${secondOrigin}/first-use`).json()
+        
+        t.true(isURL(importCap), '.import is a url')
+
+        const {statusCode: importStatusCode} = await got.post(importCap, {body: exportData, headers: {'Content-Type': 'application/json'}})
+        
+        t.is(importStatusCode, 204, 'import returns a 204 on success')
+        
+        const url = `${secondOrigin}/${key}`;
+        
+        t.log(`trying ${url}`)
+        const {statusCode: afterImportStatusCode, body} = await got.get(url, {responseType: 'json'})
+                    
+        t.is(afterImportStatusCode, 200, `GETting the key of reimported content returns 200`)
+        t.deepEqual(body, content, `GETting the key of reimported content returns the correct content`)
+        
+        secondServerProcess.kill()
+    }
+    catch(e){
+        gotHTTPErrorHandler(t)(e)
+    }
 });
 
