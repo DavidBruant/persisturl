@@ -3,6 +3,8 @@ import test from 'ava'
 
 import isURL from './helpers/isURL.js'
 import startServer from './helpers/startServer.js'
+import gotHTTPErrorHandler from './helpers/gotHTTPErrorHandler.js'
+
 
 test.before(t => {
     return startServer()
@@ -33,5 +35,6 @@ test('/first-use', t => {
         t.is(headers['location'], resp.store.add, 'Location header is .store.add url')
         t.true(isURL(resp.createCaretaker), `.createCaretaker is a url`)
     })
+    .catch(gotHTTPErrorHandler(t))
 });
 

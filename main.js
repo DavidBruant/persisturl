@@ -1,24 +1,27 @@
 import express from 'express'
 import parseCLIArgs from 'minimist'
 
-import makeServerBundle from './library/makeServerBundle.js'
+import initializeServer from './library/initializeServer.js'
+import sendContent from './library/sendStorageValue.js'
 import {GONE} from './library/constants.js'
 
 const argv = parseCLIArgs(process.argv)
 const port = argv.port && Number(argv.port) || undefined
 
 const app = express()
-app.use(express.json()) // for parsing application/json
-app.use(express.urlencoded({ extended: true })) // for parsing application/x-www-form-urlencoded
-app.use(express.text())
-app.use(express.raw()) 
+app.use(express.raw({type: () => true})) // parse all bodies as Buffers 
 
 const storage = new Map();
 
-
 app.post('/first-use', (req, res) => {    
     if(storage.size === 0){
-        makeServerBundle(storage)(req, res)
+        const origin = `${req.protocol}://${req.get('Host')}`
+        const importData = req.body.length >= 2 ? JSON.parse(req.body.toString()) : undefined;
+        const initBundle = initializeServer(storage, origin, importData)
+
+        res.status(201)
+            .set('Location', initBundle.store.add)
+            .json(initBundle)
     }
     else{
         res.status(410).end()
@@ -49,7 +52,7 @@ app.all('*', (req, res) => {
             }
         }
         else{
-            res.send(stored)
+            sendContent(stored, res)
         }
     }
 })

@@ -5,14 +5,20 @@ import isURL from './helpers/isURL.js'
 import startServer from './helpers/startServer.js'
 import gotHTTPErrorHandler from './helpers/gotHTTPErrorHandler.js'
 
-async function createServerAfterFirstUse(){
+async function createServerAfterFirstUse(importData){
     const {origin, serverProcess} = await startServer()
-    const {store: {add}, export: exportCap, import: importCap, createCaretaker} = await got.post(`${origin}/first-use`).json()
+    const {
+        store: {add}, export: exportCap, import: importCap, createCaretaker
+    } = await got.post(`${origin}/first-use`, {body: importData, headers: {'Content-Type': 'application/json'}}).json()
 
     return {
         origin, serverProcess,
         store: {add}, export: exportCap, import: importCap, createCaretaker
     }
+}
+
+function getKeyFromURL(url){
+    return (new URL(url)).pathname.slice(1); // strip beginning '/'
 }
 
 
@@ -59,7 +65,11 @@ test('basic export and reimport', async t => {
         
         t.true(isURL(importCap), '.import is a url')
 
-        const {statusCode: importStatusCode} = await got.post(importCap, {body: exportData, headers: {'Content-Type': 'application/json'}})
+        t.log('import via the import capability')
+        const {statusCode: importStatusCode} = await got.post(
+            importCap, 
+            {body: exportData, headers: {'Content-Type': 'application/json'}}
+        )
         
         t.is(importStatusCode, 204, 'import returns a 204 on success')
         
@@ -77,6 +87,60 @@ test('basic export and reimport', async t => {
         gotHTTPErrorHandler(t)(e)
     }
 });
+
+test('all reimport cases', async t => {
+    const content = {e:15, grrrr: 'rrr'};
+
+    const keysToRetrieve = {
+        store: {
+            add: undefined
+        },
+        createCaretaker: undefined,
+        import: undefined,
+        export: undefined
+    }
+
+    try{
+        t.log('start a first server')
+        const {
+            serverProcess: firstServerProcess,
+            store: {add}, createCaretaker, export: exportCap, import: importCap
+        } = await createServerAfterFirstUse()
+
+        keysToRetrieve.store.add = getKeyFromURL(add)
+        keysToRetrieve.createCaretaker = getKeyFromURL(createCaretaker)
+        keysToRetrieve.export = getKeyFromURL(exportCap)
+        keysToRetrieve.import = getKeyFromURL(importCap)
+        
+        t.log('export')
+        const {body: exportData} = await got.get(exportCap)
+
+        t.log('shut down first server')
+        await new Promise((resolve, reject) => {
+            firstServerProcess.on('exit', resolve)
+            firstServerProcess.kill()
+        });
+
+        t.log('start a second server and use /first-use to import data')
+        t.log('import data', exportData)
+        const {
+            origin: secondOrigin, serverProcess: secondServerProcess,
+            store: {add: secondAdd}, createCaretaker: secondCreateCreataker, 
+            import: secondImportCap, export: secondExportCap
+        } = await createServerAfterFirstUse(exportData)
+
+        t.is(keysToRetrieve.createCaretaker, getKeyFromURL(secondCreateCreataker), 'same createCaretaker key')
+        t.is(keysToRetrieve.store.add, getKeyFromURL(secondAdd), 'same add key')
+        t.is(keysToRetrieve.export, getKeyFromURL(secondExportCap), 'same export key')
+        t.is(keysToRetrieve.import, getKeyFromURL(secondImportCap), 'same import key')
+        
+        secondServerProcess.kill()
+    }
+    catch(e){
+        gotHTTPErrorHandler(t)(e)
+    }
+})
+
 
 /*
     Un test un peu plus complet en terme de contenu:

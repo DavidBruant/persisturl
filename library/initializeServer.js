@@ -1,19 +1,26 @@
 import {GONE} from './constants.js'
+import {CREATE_CARETAKER_MEDIA_TYPE, CREATE_STORE_ADD_MEDIA_TYPE, EXPORT_MEDIA_TYPE,
+    IMPORT_MEDIA_TYPE, CAPURLSIST_MEDIA_TYPES} from './mediaTypes.js'
 
 import makeUnusedStorageKey from './makeUnusedStorageKey.js'
+import sendContent from './sendStorageValue.js'
 
 function THROW(message){
     return () => {throw new Error(message)};
 }
 
+function addContent(storage, key, content, mediaType = 'application/octet-stream'){
+    storage.set(key, {mediaType, content})
+}
+
 function makePUT(storage, getKey){
     return (req, res) => {
         if(req.method === 'GET'){
-            return res.status(200).send(storage.get(getKey))
+            sendContent(storage.get(getKey), res)
+            return
         }
         if(req.method === 'PUT'){
-            const content = req.body;
-            storage.set(getKey, content)
+            addContent(storage, getKey, req.body, req.get('Content-Type'))
     
             res.status(204).end()
         }
@@ -25,7 +32,8 @@ function makePUT(storage, getKey){
 function makeDELETE(storage, getKey, keysToRevoke){
     return (req, res) => {
         if(req.method === 'GET'){
-            return res.status(200).send(storage.get(getKey))
+            sendContent(storage.get(getKey), res)
+            return
         }
         if(req.method === 'DELETE'){
             for(const key of keysToRevoke){
@@ -46,10 +54,8 @@ function makeAdd(storage){
             return res.status(405).end()
         }
 
-        const content = req.body;
-
         const getKey = makeUnusedStorageKey(storage);
-        storage.set(getKey, content)
+        addContent(storage, getKey, req.body, req.get('Content-Type'))
 
         const putKey = makeUnusedStorageKey(storage);
         storage.set(putKey, makePUT(storage, getKey))
@@ -70,7 +76,7 @@ function makeAdd(storage){
             })
     }
 
-    add.type = 'add'
+    add.mediaType = CREATE_STORE_ADD_MEDIA_TYPE;
 
     return add;
 }
@@ -86,12 +92,12 @@ function makeRevoke(storage, keysToRevoke){
 }
 
 function makeCaretaker(storage){
-    return (req, res) => {
+    return Object.assign((req, res) => {
         if(req.method !== 'POST'){
             return res.status(405).end()
         }
 
-        const {target} = req.body;
+        const {target} = JSON.parse(req.body.toString());
         const {pathname} = new URL(target);
         const targetKey = pathname.slice(1); // strip first '/'
 
@@ -101,7 +107,7 @@ function makeCaretaker(storage){
         else{
             const targeted = storage.get(targetKey);
 
-            if(targeted.type === 'add'){
+            if(targeted.mediaType === CREATE_STORE_ADD_MEDIA_TYPE){
                 const {addKey, deleteKey} = makeStore(storage)
 
                 const revokeKey = makeUnusedStorageKey(storage);
@@ -124,7 +130,8 @@ function makeCaretaker(storage){
                 return res.status(400).send(`Impossible to use caretaker on a target type other than 'store'`)
             }        
         }
-    }
+    }, 
+    {mediaType: CREATE_CARETAKER_MEDIA_TYPE})
 }
 
 function makeStore(storage){
@@ -141,58 +148,102 @@ function makeStore(storage){
 }
 
 function makeExport(storage){
-    return (req, res) => {
+    return Object.assign((req, res) => {
         const exportData = Object.create(null);
+
         for(const [key, value] of storage){
-            const serializableValue = Buffer.isBuffer(value) ? 
-                {type: 'buffer', content: value.toString('base64')} :
-                value
-            exportData[key] = serializableValue
+            exportData[key] = {
+                mediaType: value.mediaType, 
+                content: value.mediaType === undefined || CAPURLSIST_MEDIA_TYPES.has(value.mediaType) ? 
+                    JSON.stringify(value) : 
+                    value.content.toString('base64')
+            }
         }
 
         res.status(200).json(exportData)
+    }, {mediaType: EXPORT_MEDIA_TYPE})
+}
+
+function import_(importData, storage){
+    let createCaretakerKey, exportKey, importKey, addKey, deleteKey;
+
+    for(const [key, value] of Object.entries(importData)){
+        switch(value.mediaType){
+            case CREATE_CARETAKER_MEDIA_TYPE:{
+                createCaretakerKey = key;
+                storage.set(createCaretakerKey, makeCaretaker(storage))
+                break;
+            }
+            case CREATE_STORE_ADD_MEDIA_TYPE: {
+                addKey = key;
+                storage.set(addKey, makeAdd(storage))
+                break;
+            }
+            case EXPORT_MEDIA_TYPE: {
+                exportKey = key;
+                storage.set(exportKey, makeExport(storage))
+                break;
+            }
+            case IMPORT_MEDIA_TYPE: {
+                importKey = key;
+                storage.set(importKey, makeImport(storage))
+                break;
+            }
+            case undefined:{
+                break;
+            }
+            default: {
+                const {mediaType, content} = value
+                const buffer = Buffer.from(content, 'base64')
+                storage.set(key, {mediaType, content: buffer})
+            }
+        }
     }
+
+    return {createCaretakerKey, exportKey, importKey, addKey, deleteKey}
 }
 
 function makeImport(storage){
-    return (req, res) => {
-        const importData = req.body;
+    return Object.assign((req, res) => {
+        const importData = JSON.parse(req.body.toString())
 
-        for(const [key, value] of Object.entries(importData)){
-            storage.set(key, value)
-        }
+        import_(importData, storage)
 
         res.status(204).end()
-    }
+    }, {mediaType: IMPORT_MEDIA_TYPE})
 }
 
-export default function makeStoreBundle(storage){
-    return (req, res) => {
-        const createCaretakerKey = makeUnusedStorageKey(storage);
+export default function initializeServer(storage, origin, importData){
+    let {createCaretakerKey, exportKey, importKey, addKey, deleteKey} = importData ? import_(importData, storage) : {}
+
+    if(!createCaretakerKey){
+        createCaretakerKey = makeUnusedStorageKey(storage);
         storage.set(createCaretakerKey, makeCaretaker(storage))
+    }
 
-        const exportKey = makeUnusedStorageKey(storage);
+    if(!exportKey){
+        exportKey = makeUnusedStorageKey(storage);
         storage.set(exportKey, makeExport(storage))
+    }
 
-        const importKey = makeUnusedStorageKey(storage);
+    if(!importKey){
+        importKey = makeUnusedStorageKey(storage);
         storage.set(importKey, makeImport(storage))
+    }
 
-        const {addKey, deleteKey} = makeStore(storage)
+    if(!addKey /* || !deleteKey*/){
+        ({addKey, deleteKey} = makeStore(storage))
+    }
 
-        const origin = `${req.protocol}://${req.get('Host')}`
+    const addURL = `${origin}/${addKey}`;
 
-        const addURL = `${origin}/${addKey}`;
-
-        res.status(201)
-            .set('Location', addURL)
-            .json({
-                'store': {
-                    'add': addURL,
-                    'DELETE': `${origin}/${deleteKey}`,
-                },
-                'createCaretaker': `${origin}/${createCaretakerKey}`,
-                'export': `${origin}/${exportKey}`,
-                'import': `${origin}/${importKey}`,
-            })
+    return {
+        'store': {
+            'add': addURL,
+            'DELETE': `${origin}/${deleteKey}`,
+        },
+        'createCaretaker': `${origin}/${createCaretakerKey}`,
+        'export': `${origin}/${exportKey}`,
+        'import': `${origin}/${importKey}`
     }
 }
